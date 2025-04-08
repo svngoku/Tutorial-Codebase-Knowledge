@@ -19,9 +19,13 @@ EXPOSE 8501
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-
-# Copy .env file into the container
-COPY .env .env
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV STREAMLIT_SERVER_PORT=8501
+ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
+ENV STREAMLIT_SERVER_HEADLESS=true
+ENV LOG_DIR=/app/logs
+ENV CACHE_FILE=/app/llm_cache.json
+ENV CACHE_ENABLED=true
 
 # Command to run the Streamlit app
 CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
