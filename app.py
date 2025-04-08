@@ -138,29 +138,46 @@ if submit_button:
             # Run the flow with progress updates
             # Note: In a real implementation, you would need to modify the flow
             # to provide progress updates or use callbacks
-            result = tutorial_flow.run(shared)
-            
-            progress_bar.progress(100)
-            status_text.text("Tutorial generation complete!")
-            
-            # Display result
-            if result.get("final_output_dir"):
-                st.success(f"Tutorial generated successfully in: {result['final_output_dir']}")
+            try:
+                result = tutorial_flow.run(shared)
                 
-                # Provide download links if files are accessible
-                st.markdown("### Download Tutorial Files")
-                for file in os.listdir(result["final_output_dir"]):
-                    file_path = os.path.join(result["final_output_dir"], file)
-                    if os.path.isfile(file_path):
-                        with open(file_path, "rb") as f:
-                            st.download_button(
-                                label=f"Download {file}",
-                                data=f,
-                                file_name=file,
-                                mime="text/markdown"
-                            )
-            else:
-                st.warning("Tutorial generation completed but output directory not found.")
+                progress_bar.progress(100)
+                status_text.text("Tutorial generation complete!")
+                
+                # Display result
+                if result and result.get("final_output_dir"):
+                    st.success(f"Tutorial generated successfully in: {result['final_output_dir']}")
+                    
+                    # Provide download links if files are accessible
+                    output_dir = result["final_output_dir"]
+                    if os.path.exists(output_dir) and os.path.isdir(output_dir):
+                        st.markdown("### Download Tutorial Files")
+                        files = os.listdir(output_dir)
+                        if files:
+                            for file in files:
+                                file_path = os.path.join(output_dir, file)
+                                if os.path.isfile(file_path):
+                                    try:
+                                        with open(file_path, "rb") as f:
+                                            st.download_button(
+                                                label=f"Download {file}",
+                                                data=f,
+                                                file_name=file,
+                                                mime="text/markdown"
+                                            )
+                                    except Exception as e:
+                                        st.error(f"Error reading file {file}: {str(e)}")
+                        else:
+                            st.info("No files found in the output directory.")
+                    else:
+                        st.warning(f"Output directory not found or not accessible: {output_dir}")
+                else:
+                    st.warning("Tutorial generation completed but output directory not found.")
+            except Exception as e:
+                progress_bar.progress(100)
+                status_text.text("Tutorial generation failed!")
+                st.error(f"Error generating tutorial: {str(e)}")
+                st.exception(e)
                 
         except Exception as e:
             st.error(f"Error generating tutorial: {str(e)}")
