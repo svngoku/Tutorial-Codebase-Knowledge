@@ -151,22 +151,36 @@ if submit_button:
                     
                     # Check if output directory exists
                     if os.path.exists(output_dir) and os.path.isdir(output_dir):
-                        st.markdown("### Download Tutorial Files")
-                        files = os.listdir(output_dir)
+                        st.markdown("### Tutorial Content")
+                        files = sorted(os.listdir(output_dir))
                         if files:
-                            for file in files:
+                            # Create tabs for each file
+                            tabs = st.tabs([f.replace('.md', '') for f in files])
+                            
+                            for i, file in enumerate(files):
                                 file_path = os.path.join(output_dir, file)
                                 if os.path.isfile(file_path):
                                     try:
-                                        with open(file_path, "rb") as f:
-                                            st.download_button(
-                                                label=f"Download {file}",
-                                                data=f,
-                                                file_name=file,
-                                                mime="text/markdown"
-                                            )
+                                        # Read the file content
+                                        with open(file_path, "r", encoding="utf-8") as f:
+                                            content = f.read()
+                                        
+                                        # Display the content in the corresponding tab
+                                        with tabs[i]:
+                                            # Add download button at the top
+                                            with open(file_path, "rb") as f:
+                                                st.download_button(
+                                                    label=f"Download {file}",
+                                                    data=f,
+                                                    file_name=file,
+                                                    mime="text/markdown"
+                                                )
+                                            
+                                            # Display the markdown content
+                                            st.markdown(content)
                                     except Exception as e:
-                                        st.error(f"Error reading file {file}: {str(e)}")
+                                        with tabs[i]:
+                                            st.error(f"Error reading file {file}: {str(e)}")
                         else:
                             st.info("No files found in the output directory.")
                     else:
@@ -184,23 +198,37 @@ if submit_button:
                                 actual_output_dir = os.path.join(output_base_dir, project_name)
                                 st.success(f"Found output directory at: {actual_output_dir}")
                                 
-                                # List files for download
-                                st.markdown("### Download Tutorial Files")
-                                files = os.listdir(actual_output_dir)
+                                # List files for download and viewing
+                                st.markdown("### Tutorial Content")
+                                files = sorted(os.listdir(actual_output_dir))
                                 if files:
-                                    for file in files:
+                                    # Create tabs for each file
+                                    tabs = st.tabs([f.replace('.md', '') for f in files])
+                                    
+                                    for i, file in enumerate(files):
                                         file_path = os.path.join(actual_output_dir, file)
                                         if os.path.isfile(file_path):
                                             try:
-                                                with open(file_path, "rb") as f:
-                                                    st.download_button(
-                                                        label=f"Download {file}",
-                                                        data=f,
-                                                        file_name=file,
-                                                        mime="text/markdown"
-                                                    )
+                                                # Read the file content
+                                                with open(file_path, "r", encoding="utf-8") as f:
+                                                    content = f.read()
+                                                
+                                                # Display the content in the corresponding tab
+                                                with tabs[i]:
+                                                    # Add download button at the top
+                                                    with open(file_path, "rb") as f:
+                                                        st.download_button(
+                                                            label=f"Download {file}",
+                                                            data=f,
+                                                            file_name=file,
+                                                            mime="text/markdown"
+                                                        )
+                                                    
+                                                    # Display the markdown content
+                                                    st.markdown(content)
                                             except Exception as e:
-                                                st.error(f"Error reading file {file}: {str(e)}")
+                                                with tabs[i]:
+                                                    st.error(f"Error reading file {file}: {str(e)}")
                                 else:
                                     st.info("No files found in the output directory.")
                             else:
