@@ -2,10 +2,15 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install system dependencies including Git and bash
+# Install system dependencies including Git, bash, and PDF conversion tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     bash \
+    pandoc \
+    wkhtmltopdf \
+    texlive-xetex \
+    texlive-fonts-recommended \
+    texlive-plain-generic \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
