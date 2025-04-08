@@ -5,7 +5,7 @@ import tempfile
 import json
 import time
 from flow import create_tutorial_flow
-from utils.markdown_to_pdf import markdown_to_pdf
+from utils.markdown_converter import markdown_to_html, markdown_to_pdf, create_combined_markdown, get_file_contents
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -196,65 +196,75 @@ if submit_button:
                                         # Display the markdown content
                                         st.markdown(content)
                             
-                            # Create combined content in proper order
-                            # Start with index.md if it exists
-                            if 'index.md' in file_contents:
-                                combined_content += file_contents['index.md'] + "\n\n---\n\n"
-                            
-                            # Add all numbered chapters in order
-                            numbered_files = [f for f in files if f.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')) and f.endswith('.md')]
-                            numbered_files.sort()
-                            
-                            for file in numbered_files:
-                                if file in file_contents:
-                                    combined_content += file_contents[file] + "\n\n---\n\n"
-                            
-                            # Add any remaining files
-                            for file in files:
-                                if file != 'index.md' and file not in numbered_files and file.endswith('.md'):
-                                    if file in file_contents:
-                                        combined_content += file_contents[file] + "\n\n---\n\n"
+                            # Create combined content using our utility function
+                            combined_content, combined_file_path = create_combined_markdown(
+                                file_contents, 
+                                os.path.join(output_dir, "complete_tutorial.md")
+                            )
                             
                             # Display the complete tutorial tab
                             with tabs[-1]:
-                                # Create a combined markdown file for download
-                                combined_file_path = os.path.join(output_dir, "complete_tutorial.md")
-                                with open(combined_file_path, "w", encoding="utf-8") as f:
-                                    f.write(combined_content)
-                                
-                                # Add download buttons
-                                with open(combined_file_path, "rb") as f:
-                                    st.download_button(
-                                        label="Download Complete Tutorial (Markdown)",
-                                        data=f,
-                                        file_name="complete_tutorial.md",
-                                        mime="text/markdown"
-                                    )
-                                
-                                # Convert to PDF and add PDF download button
-                                try:
-                                    with st.spinner("Converting to PDF..."):
-                                        # Create a temporary file for the PDF
-                                        pdf_file_path = os.path.join(output_dir, "complete_tutorial.pdf")
+                                if combined_content and combined_file_path:
+                                    # Add download buttons for markdown
+                                    with open(combined_file_path, "rb") as f:
+                                        st.download_button(
+                                            label="Download Complete Tutorial (Markdown)",
+                                            data=f,
+                                            file_name="complete_tutorial.md",
+                                            mime="text/markdown"
+                                        )
+                                    
+                                    # Convert to HTML for better rendering
+                                    html_content = markdown_to_html(combined_content)
+                                    if html_content:
+                                        # Save HTML file
+                                        html_file_path = os.path.join(output_dir, "complete_tutorial.html")
+                                        with open(html_file_path, "w", encoding="utf-8") as f:
+                                            f.write(html_content)
                                         
-                                        # Convert markdown to PDF
-                                        pdf_path = markdown_to_pdf(combined_content, pdf_file_path)
-                                        
-                                        if pdf_path and os.path.exists(pdf_path):
-                                            with open(pdf_path, "rb") as f:
-                                                st.download_button(
-                                                    label="Download Complete Tutorial (PDF)",
-                                                    data=f,
-                                                    file_name="complete_tutorial.pdf",
-                                                    mime="application/pdf"
-                                                )
-                                        else:
-                                            st.warning("PDF conversion failed. Please download the markdown version instead.")
-                                except Exception as e:
-                                    st.warning(f"PDF conversion failed: {str(e)}. Please download the markdown version instead.")
-                                
-                                # Display the combined content
-                                st.markdown(combined_content)
+                                        # Add download button for HTML
+                                        with open(html_file_path, "rb") as f:
+                                            st.download_button(
+                                                label="Download Complete Tutorial (HTML)",
+                                                data=f,
+                                                file_name="complete_tutorial.html",
+                                                mime="text/html"
+                                            )
+                                    
+                                    # Convert to PDF and add PDF download button
+                                    try:
+                                        with st.spinner("Converting to PDF..."):
+                                            # Create a file for the PDF
+                                            pdf_file_path = os.path.join(output_dir, "complete_tutorial.pdf")
+                                            
+                                            # Convert markdown to PDF
+                                            pdf_path = markdown_to_pdf(combined_content, pdf_file_path)
+                                            
+                                            if pdf_path and os.path.exists(pdf_path):
+                                                with open(pdf_path, "rb") as f:
+                                                    st.download_button(
+                                                        label="Download Complete Tutorial (PDF)",
+                                                        data=f,
+                                                        file_name="complete_tutorial.pdf",
+                                                        mime="application/pdf"
+                                                    )
+                                            else:
+                                                st.warning("PDF conversion failed. Please download the HTML or markdown version instead.")
+                                    except Exception as e:
+                                        st.warning(f"PDF conversion failed: {str(e)}. Please download the HTML or markdown version instead.")
+                                    
+                                    # Display the combined content with proper rendering
+                                    st.markdown("## Complete Tutorial")
+                                    st.markdown("This tab shows all chapters combined into a single document.")
+                                    
+                                    # Use HTML display for better rendering of Mermaid diagrams
+                                    if html_content:
+                                        st.components.v1.html(html_content, height=800, scrolling=True)
+                                    else:
+                                        # Fallback to regular markdown display
+                                        st.markdown(combined_content)
+                                else:
+                                    st.error("Failed to create combined tutorial content.")
                         else:
                             st.info("No files found in the output directory.")
                     else:
@@ -314,65 +324,75 @@ if submit_button:
                                                 # Display the markdown content
                                                 st.markdown(content)
                                     
-                                    # Create combined content in proper order
-                                    # Start with index.md if it exists
-                                    if 'index.md' in file_contents:
-                                        combined_content += file_contents['index.md'] + "\n\n---\n\n"
-                                    
-                                    # Add all numbered chapters in order
-                                    numbered_files = [f for f in files if f.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')) and f.endswith('.md')]
-                                    numbered_files.sort()
-                                    
-                                    for file in numbered_files:
-                                        if file in file_contents:
-                                            combined_content += file_contents[file] + "\n\n---\n\n"
-                                    
-                                    # Add any remaining files
-                                    for file in files:
-                                        if file != 'index.md' and file not in numbered_files and file.endswith('.md'):
-                                            if file in file_contents:
-                                                combined_content += file_contents[file] + "\n\n---\n\n"
+                                    # Create combined content using our utility function
+                                    combined_content, combined_file_path = create_combined_markdown(
+                                        file_contents, 
+                                        os.path.join(actual_output_dir, "complete_tutorial.md")
+                                    )
                                     
                                     # Display the complete tutorial tab
                                     with tabs[-1]:
-                                        # Create a combined markdown file for download
-                                        combined_file_path = os.path.join(actual_output_dir, "complete_tutorial.md")
-                                        with open(combined_file_path, "w", encoding="utf-8") as f:
-                                            f.write(combined_content)
-                                        
-                                        # Add download buttons
-                                        with open(combined_file_path, "rb") as f:
-                                            st.download_button(
-                                                label="Download Complete Tutorial (Markdown)",
-                                                data=f,
-                                                file_name="complete_tutorial.md",
-                                                mime="text/markdown"
-                                            )
-                                        
-                                        # Convert to PDF and add PDF download button
-                                        try:
-                                            with st.spinner("Converting to PDF..."):
-                                                # Create a temporary file for the PDF
-                                                pdf_file_path = os.path.join(actual_output_dir, "complete_tutorial.pdf")
+                                        if combined_content and combined_file_path:
+                                            # Add download buttons for markdown
+                                            with open(combined_file_path, "rb") as f:
+                                                st.download_button(
+                                                    label="Download Complete Tutorial (Markdown)",
+                                                    data=f,
+                                                    file_name="complete_tutorial.md",
+                                                    mime="text/markdown"
+                                                )
+                                            
+                                            # Convert to HTML for better rendering
+                                            html_content = markdown_to_html(combined_content)
+                                            if html_content:
+                                                # Save HTML file
+                                                html_file_path = os.path.join(actual_output_dir, "complete_tutorial.html")
+                                                with open(html_file_path, "w", encoding="utf-8") as f:
+                                                    f.write(html_content)
                                                 
-                                                # Convert markdown to PDF
-                                                pdf_path = markdown_to_pdf(combined_content, pdf_file_path)
-                                                
-                                                if pdf_path and os.path.exists(pdf_path):
-                                                    with open(pdf_path, "rb") as f:
-                                                        st.download_button(
-                                                            label="Download Complete Tutorial (PDF)",
-                                                            data=f,
-                                                            file_name="complete_tutorial.pdf",
-                                                            mime="application/pdf"
-                                                        )
-                                                else:
-                                                    st.warning("PDF conversion failed. Please download the markdown version instead.")
-                                        except Exception as e:
-                                            st.warning(f"PDF conversion failed: {str(e)}. Please download the markdown version instead.")
-                                        
-                                        # Display the combined content
-                                        st.markdown(combined_content)
+                                                # Add download button for HTML
+                                                with open(html_file_path, "rb") as f:
+                                                    st.download_button(
+                                                        label="Download Complete Tutorial (HTML)",
+                                                        data=f,
+                                                        file_name="complete_tutorial.html",
+                                                        mime="text/html"
+                                                    )
+                                            
+                                            # Convert to PDF and add PDF download button
+                                            try:
+                                                with st.spinner("Converting to PDF..."):
+                                                    # Create a file for the PDF
+                                                    pdf_file_path = os.path.join(actual_output_dir, "complete_tutorial.pdf")
+                                                    
+                                                    # Convert markdown to PDF
+                                                    pdf_path = markdown_to_pdf(combined_content, pdf_file_path)
+                                                    
+                                                    if pdf_path and os.path.exists(pdf_path):
+                                                        with open(pdf_path, "rb") as f:
+                                                            st.download_button(
+                                                                label="Download Complete Tutorial (PDF)",
+                                                                data=f,
+                                                                file_name="complete_tutorial.pdf",
+                                                                mime="application/pdf"
+                                                            )
+                                                    else:
+                                                        st.warning("PDF conversion failed. Please download the HTML or markdown version instead.")
+                                            except Exception as e:
+                                                st.warning(f"PDF conversion failed: {str(e)}. Please download the HTML or markdown version instead.")
+                                            
+                                            # Display the combined content with proper rendering
+                                            st.markdown("## Complete Tutorial")
+                                            st.markdown("This tab shows all chapters combined into a single document.")
+                                            
+                                            # Use HTML display for better rendering of Mermaid diagrams
+                                            if html_content:
+                                                st.components.v1.html(html_content, height=800, scrolling=True)
+                                            else:
+                                                # Fallback to regular markdown display
+                                                st.markdown(combined_content)
+                                        else:
+                                            st.error("Failed to create combined tutorial content.")
                                 else:
                                     st.info("No files found in the output directory.")
                             else:
