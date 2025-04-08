@@ -22,4 +22,18 @@ services:
       - LOG_DIR=/app/logs
       - CACHE_FILE=/app/llm_cache.json
       - CACHE_ENABLED=true
+      - OUTPUT_DIR=/app/output
     restart: unless-stopped
+    # Ensure the container has write permissions to the output directory
+    user: "${UID:-1000}:${GID:-1000}"
+    # Create output directory with proper permissions
+    command: >
+      bash -c "
+        mkdir -p /app/output &&
+        chmod -R 777 /app/output &&
+        mkdir -p /app/logs &&
+        chmod -R 777 /app/logs &&
+        touch /app/llm_cache.json &&
+        chmod 666 /app/llm_cache.json &&
+        streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+      "
