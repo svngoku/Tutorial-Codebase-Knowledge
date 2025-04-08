@@ -2,6 +2,12 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+# Install system dependencies including Git
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy requirements first for better caching
 COPY requirements.txt .
 
@@ -26,6 +32,7 @@ ENV STREAMLIT_SERVER_HEADLESS=true
 ENV LOG_DIR=/app/logs
 ENV CACHE_FILE=/app/llm_cache.json
 ENV CACHE_ENABLED=true
+ENV GIT_PYTHON_REFRESH=quiet
 
 # Command to run the Streamlit app
 CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
