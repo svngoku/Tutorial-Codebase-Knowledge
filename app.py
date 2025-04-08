@@ -1,7 +1,11 @@
 import streamlit as st
 import os
 import dotenv
+import tempfile
+import json
+import time
 from flow import create_tutorial_flow
+from utils.markdown_to_pdf import markdown_to_pdf
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -151,22 +155,106 @@ if submit_button:
                     
                     # Check if output directory exists
                     if os.path.exists(output_dir) and os.path.isdir(output_dir):
-                        st.markdown("### Download Tutorial Files")
-                        files = os.listdir(output_dir)
+                        st.markdown("### Tutorial Content")
+                        files = sorted(os.listdir(output_dir))
                         if files:
+                            # Create tabs for each file plus a "Complete Tutorial" tab
+                            tab_names = [f.replace('.md', '') for f in files]
+                            tab_names.append("Complete Tutorial")
+                            tabs = st.tabs(tab_names)
+                            
+                            # Prepare combined content for the complete tutorial
+                            combined_content = ""
+                            file_contents = {}
+                            
+                            # First, read all file contents
                             for file in files:
                                 file_path = os.path.join(output_dir, file)
-                                if os.path.isfile(file_path):
+                                if os.path.isfile(file_path) and file.endswith('.md'):
                                     try:
-                                        with open(file_path, "rb") as f:
+                                        with open(file_path, "r", encoding="utf-8") as f:
+                                            file_contents[file] = f.read()
+                                    except Exception as e:
+                                        file_contents[file] = f"Error reading file: {str(e)}"
+                            
+                            # Process individual tabs
+                            for i, file in enumerate(files):
+                                if file in file_contents:
+                                    content = file_contents[file]
+                                    
+                                    # Display the content in the corresponding tab
+                                    with tabs[i]:
+                                        # Add download button at the top
+                                        with open(os.path.join(output_dir, file), "rb") as f:
                                             st.download_button(
                                                 label=f"Download {file}",
                                                 data=f,
                                                 file_name=file,
                                                 mime="text/markdown"
                                             )
-                                    except Exception as e:
-                                        st.error(f"Error reading file {file}: {str(e)}")
+                                        
+                                        # Display the markdown content
+                                        st.markdown(content)
+                            
+                            # Create combined content in proper order
+                            # Start with index.md if it exists
+                            if 'index.md' in file_contents:
+                                combined_content += file_contents['index.md'] + "\n\n---\n\n"
+                            
+                            # Add all numbered chapters in order
+                            numbered_files = [f for f in files if f.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')) and f.endswith('.md')]
+                            numbered_files.sort()
+                            
+                            for file in numbered_files:
+                                if file in file_contents:
+                                    combined_content += file_contents[file] + "\n\n---\n\n"
+                            
+                            # Add any remaining files
+                            for file in files:
+                                if file != 'index.md' and file not in numbered_files and file.endswith('.md'):
+                                    if file in file_contents:
+                                        combined_content += file_contents[file] + "\n\n---\n\n"
+                            
+                            # Display the complete tutorial tab
+                            with tabs[-1]:
+                                # Create a combined markdown file for download
+                                combined_file_path = os.path.join(output_dir, "complete_tutorial.md")
+                                with open(combined_file_path, "w", encoding="utf-8") as f:
+                                    f.write(combined_content)
+                                
+                                # Add download buttons
+                                with open(combined_file_path, "rb") as f:
+                                    st.download_button(
+                                        label="Download Complete Tutorial (Markdown)",
+                                        data=f,
+                                        file_name="complete_tutorial.md",
+                                        mime="text/markdown"
+                                    )
+                                
+                                # Convert to PDF and add PDF download button
+                                try:
+                                    with st.spinner("Converting to PDF..."):
+                                        # Create a temporary file for the PDF
+                                        pdf_file_path = os.path.join(output_dir, "complete_tutorial.pdf")
+                                        
+                                        # Convert markdown to PDF
+                                        pdf_path = markdown_to_pdf(combined_content, pdf_file_path)
+                                        
+                                        if pdf_path and os.path.exists(pdf_path):
+                                            with open(pdf_path, "rb") as f:
+                                                st.download_button(
+                                                    label="Download Complete Tutorial (PDF)",
+                                                    data=f,
+                                                    file_name="complete_tutorial.pdf",
+                                                    mime="application/pdf"
+                                                )
+                                        else:
+                                            st.warning("PDF conversion failed. Please download the markdown version instead.")
+                                except Exception as e:
+                                    st.warning(f"PDF conversion failed: {str(e)}. Please download the markdown version instead.")
+                                
+                                # Display the combined content
+                                st.markdown(combined_content)
                         else:
                             st.info("No files found in the output directory.")
                     else:
@@ -184,23 +272,107 @@ if submit_button:
                                 actual_output_dir = os.path.join(output_base_dir, project_name)
                                 st.success(f"Found output directory at: {actual_output_dir}")
                                 
-                                # List files for download
-                                st.markdown("### Download Tutorial Files")
-                                files = os.listdir(actual_output_dir)
+                                # List files for download and viewing
+                                st.markdown("### Tutorial Content")
+                                files = sorted(os.listdir(actual_output_dir))
                                 if files:
+                                    # Create tabs for each file plus a "Complete Tutorial" tab
+                                    tab_names = [f.replace('.md', '') for f in files]
+                                    tab_names.append("Complete Tutorial")
+                                    tabs = st.tabs(tab_names)
+                                    
+                                    # Prepare combined content for the complete tutorial
+                                    combined_content = ""
+                                    file_contents = {}
+                                    
+                                    # First, read all file contents
                                     for file in files:
                                         file_path = os.path.join(actual_output_dir, file)
-                                        if os.path.isfile(file_path):
+                                        if os.path.isfile(file_path) and file.endswith('.md'):
                                             try:
-                                                with open(file_path, "rb") as f:
+                                                with open(file_path, "r", encoding="utf-8") as f:
+                                                    file_contents[file] = f.read()
+                                            except Exception as e:
+                                                file_contents[file] = f"Error reading file: {str(e)}"
+                                    
+                                    # Process individual tabs
+                                    for i, file in enumerate(files):
+                                        if file in file_contents:
+                                            content = file_contents[file]
+                                            
+                                            # Display the content in the corresponding tab
+                                            with tabs[i]:
+                                                # Add download button at the top
+                                                with open(os.path.join(actual_output_dir, file), "rb") as f:
                                                     st.download_button(
                                                         label=f"Download {file}",
                                                         data=f,
                                                         file_name=file,
                                                         mime="text/markdown"
                                                     )
-                                            except Exception as e:
-                                                st.error(f"Error reading file {file}: {str(e)}")
+                                                
+                                                # Display the markdown content
+                                                st.markdown(content)
+                                    
+                                    # Create combined content in proper order
+                                    # Start with index.md if it exists
+                                    if 'index.md' in file_contents:
+                                        combined_content += file_contents['index.md'] + "\n\n---\n\n"
+                                    
+                                    # Add all numbered chapters in order
+                                    numbered_files = [f for f in files if f.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')) and f.endswith('.md')]
+                                    numbered_files.sort()
+                                    
+                                    for file in numbered_files:
+                                        if file in file_contents:
+                                            combined_content += file_contents[file] + "\n\n---\n\n"
+                                    
+                                    # Add any remaining files
+                                    for file in files:
+                                        if file != 'index.md' and file not in numbered_files and file.endswith('.md'):
+                                            if file in file_contents:
+                                                combined_content += file_contents[file] + "\n\n---\n\n"
+                                    
+                                    # Display the complete tutorial tab
+                                    with tabs[-1]:
+                                        # Create a combined markdown file for download
+                                        combined_file_path = os.path.join(actual_output_dir, "complete_tutorial.md")
+                                        with open(combined_file_path, "w", encoding="utf-8") as f:
+                                            f.write(combined_content)
+                                        
+                                        # Add download buttons
+                                        with open(combined_file_path, "rb") as f:
+                                            st.download_button(
+                                                label="Download Complete Tutorial (Markdown)",
+                                                data=f,
+                                                file_name="complete_tutorial.md",
+                                                mime="text/markdown"
+                                            )
+                                        
+                                        # Convert to PDF and add PDF download button
+                                        try:
+                                            with st.spinner("Converting to PDF..."):
+                                                # Create a temporary file for the PDF
+                                                pdf_file_path = os.path.join(actual_output_dir, "complete_tutorial.pdf")
+                                                
+                                                # Convert markdown to PDF
+                                                pdf_path = markdown_to_pdf(combined_content, pdf_file_path)
+                                                
+                                                if pdf_path and os.path.exists(pdf_path):
+                                                    with open(pdf_path, "rb") as f:
+                                                        st.download_button(
+                                                            label="Download Complete Tutorial (PDF)",
+                                                            data=f,
+                                                            file_name="complete_tutorial.pdf",
+                                                            mime="application/pdf"
+                                                        )
+                                                else:
+                                                    st.warning("PDF conversion failed. Please download the markdown version instead.")
+                                        except Exception as e:
+                                            st.warning(f"PDF conversion failed: {str(e)}. Please download the markdown version instead.")
+                                        
+                                        # Display the combined content
+                                        st.markdown(combined_content)
                                 else:
                                     st.info("No files found in the output directory.")
                             else:
