@@ -2,18 +2,8 @@ import os
 import yaml
 from pocketflow import Node, BatchNode
 from utils.crawl_github_files import crawl_github_files
-from utils.call_llm import call_llm # Assuming you have this utility
-
-# Helper to create context from files, respecting limits (basic example)
-def create_llm_context(files_data):
-    context = ""
-    file_info = [] # Store tuples of (index, path)
-    for i, (path, content) in enumerate(files_data):
-        entry = f"--- File Index {i}: {path} ---\n{content}\n\n"
-        context += entry
-        file_info.append((i, path))
-
-    return context, file_info # file_info is list of (index, path)
+from utils.call_llm import call_llm 
+from utils.crawl_local_files import crawl_local_files
 
 # Helper to get content for specific file indices
 def get_content_for_indices(files_data, indices):
@@ -26,20 +16,26 @@ def get_content_for_indices(files_data, indices):
 
 class FetchRepo(Node):
     def prep(self, shared):
-        repo_url = shared["repo_url"]
+        repo_url = shared.get("repo_url")
+        local_dir = shared.get("local_dir")
         project_name = shared.get("project_name")
+        
         if not project_name:
-            # Basic name derivation from URL
-            project_name = repo_url.split('/')[-1].replace('.git', '')
+            # Basic name derivation from URL or directory
+            if repo_url:
+                project_name = repo_url.split('/')[-1].replace('.git', '')
+            else:
+                project_name = os.path.basename(os.path.abspath(local_dir))
             shared["project_name"] = project_name
 
-        # Get file patterns directly from shared (defaults are defined in main.py)
+        # Get file patterns directly from shared
         include_patterns = shared["include_patterns"]
         exclude_patterns = shared["exclude_patterns"]
         max_file_size = shared["max_file_size"]
 
         return {
             "repo_url": repo_url,
+            "local_dir": local_dir,
             "token": shared.get("github_token"),
             "include_patterns": include_patterns,
             "exclude_patterns": exclude_patterns,
@@ -48,15 +44,26 @@ class FetchRepo(Node):
         }
 
     def exec(self, prep_res):
-        print(f"Crawling repository: {prep_res['repo_url']}...")
-        result = crawl_github_files(
-            repo_url=prep_res["repo_url"],
-            token=prep_res["token"],
-            include_patterns=prep_res["include_patterns"],
-            exclude_patterns=prep_res["exclude_patterns"],
-            max_file_size=prep_res["max_file_size"],
-            use_relative_paths=prep_res["use_relative_paths"]
-        )
+        if prep_res["repo_url"]:
+            print(f"Crawling repository: {prep_res['repo_url']}...")
+            result = crawl_github_files(
+                repo_url=prep_res["repo_url"],
+                token=prep_res["token"],
+                include_patterns=prep_res["include_patterns"],
+                exclude_patterns=prep_res["exclude_patterns"],
+                max_file_size=prep_res["max_file_size"],
+                use_relative_paths=prep_res["use_relative_paths"]
+            )
+        else:
+            print(f"Crawling directory: {prep_res['local_dir']}...")
+            result = crawl_local_files(
+                directory=prep_res["local_dir"],
+                include_patterns=prep_res["include_patterns"],
+                exclude_patterns=prep_res["exclude_patterns"],
+                max_file_size=prep_res["max_file_size"],
+                use_relative_paths=prep_res["use_relative_paths"]
+            )
+            
         # Convert dict to list of tuples: [(path, content), ...]
         files_list = list(result.get("files", {}).items())
         print(f"Fetched {len(files_list)} files.")
@@ -69,6 +76,18 @@ class IdentifyAbstractions(Node):
     def prep(self, shared):
         files_data = shared["files"]
         project_name = shared["project_name"]  # Get project name
+        
+        # Helper to create context from files, respecting limits (basic example)
+        def create_llm_context(files_data):
+            context = ""
+            file_info = [] # Store tuples of (index, path)
+            for i, (path, content) in enumerate(files_data):
+                entry = f"--- File Index {i}: {path} ---\n{content}\n\n"
+                context += entry
+                file_info.append((i, path))
+
+            return context, file_info # file_info is list of (index, path)
+
         context, file_info = create_llm_context(files_data)
         # Format file info for the prompt (comment is just a hint for LLM)
         file_listing_for_prompt = "\n".join([f"- {idx} # {path}" for idx, path in file_info])
